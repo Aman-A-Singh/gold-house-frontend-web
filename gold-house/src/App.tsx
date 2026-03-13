@@ -1,26 +1,25 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import { isAuthenticated } from "./lib/api";
+import Dashboard from "./pages/Dashboard";
+import DashboardLayout from "./components/DashboardLayout";
 
 // Redirect to login if not authenticated
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    return isAuthenticated() ? <>{children}</> : <Navigate to="/" replace />;
+    return isAuthenticated() ? (
+        <DashboardLayout>{children}</DashboardLayout>
+    ) : (
+        <Navigate to="/login" replace />
+    );
 };
 
-// Temporary dashboard placeholder
-const Dashboard = () => (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-secondary">Gold House</h1>
-            <p className="text-muted-foreground">Dashboard — coming soon</p>
-        </div>
-    </div>
-);
+
 
 const App = () => (
     <BrowserRouter>
         <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={isAuthenticated() ? <Navigate to="/dashboard" /> : <Login />} />
             <Route
                 path="/dashboard"
                 element={
@@ -28,6 +27,14 @@ const App = () => (
                         <Dashboard />
                     </ProtectedRoute>
                 }
+            />
+            <Route
+                path="/orders"
+                element={<ProtectedRoute><div>Orders Page</div></ProtectedRoute>}
+            />
+            <Route
+                path="/customers"
+                element={<ProtectedRoute><div>Customers Page</div></ProtectedRoute>}
             />
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />

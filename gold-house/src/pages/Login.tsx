@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
-import { login, saveToken } from "@/lib/api";
+import { login } from "@/lib/api";
 
 const Login = () => {
     const navigate = useNavigate();
@@ -21,8 +21,8 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const data = await login({ username: userName, password });
-            saveToken(data.token);
+            await login({ username: userName, password });
+            // Cookie is set automatically by server — no token saving needed
             navigate("/dashboard");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Login failed. Please try again.");

@@ -1,15 +1,13 @@
 import { NavLink } from "@/components/ui/sideBar/NavLink";
-import { Users, ChevronLeft, LayoutDashboard, ShoppingCart, LogOut } from "lucide-react";
+import { Users, LayoutDashboard, ShoppingCart, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "../button";
 import GoldHouseLogo from "../goldHouseLogo";
 
 interface SidebarProps {
     isCollapsed: boolean;
-    toggleSidebar: () => void;
 }
 
-const Sidebar = ({ isCollapsed, toggleSidebar }: SidebarProps) => {
+const Sidebar = ({ isCollapsed }: SidebarProps) => {
     return (
         <aside className={cn(
             "relative bg-card border-r border-border flex-shrink-0 transition-all duration-200 bg-primary",
@@ -30,14 +28,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar }: SidebarProps) => {
                     MAIN MENU
                 </div>
 
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-1/2 -right-4 -translate-y-1/2 w-8 h-8 rounded-full border-border bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center shadow-md hover:scale-110 transition-transform focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={toggleSidebar}
-                >
-                    <ChevronLeft className={cn("h-4 w-4 transition-transform color-primary", isCollapsed && "rotate-180")} />
-                </Button>
             </div>
             <nav className="mt-4">
                 <ul>

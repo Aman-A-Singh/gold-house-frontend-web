@@ -8,7 +8,6 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-    token: string;
     [key: string]: unknown;
 }
 
@@ -17,10 +16,10 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
+        credentials: "include", // browser stores the HttpOnly cookie from Set-Cookie header
     });
 
     if (!res.ok) {
-        // Try to extract a message from the response body
         let message = "Invalid credentials";
         try {
             const body = await res.json();
@@ -31,18 +30,35 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
         throw new Error(message);
     }
 
-    return res.json();
+    const data: { data: LoginResponse } = await res.json();
+
+    // Store only the expiry time — NOT the token itself
+    // Matches jwt.expiration = 3600000 (1 hour) in application.properties
+    localStorage.setItem("gh_session_exp", String(Date.now() + 3600000));
+
+    return data.data;
 }
 
-// ─── Token helpers ────────────────────────────────────────────────────────────
+// ─── Session helpers ──────────────────────────────────────────────────────────
 
-const TOKEN_KEY = "gh_token";
+/**
+ * Instant client-side session check — reads the expiry timestamp stored on login.
+ * The actual JWT lives in an HttpOnly cookie and is never accessible to JS.
+ * Returns false when no session exists or the session has expired.
+ */
+export function checkAuth(): boolean {
+    const exp = localStorage.getItem("gh_session_exp");
+    if (!exp) return false;
+    return Date.now() < Number(exp);
+}
 
-export const saveToken = (token: string) =>
-    localStorage.setItem(TOKEN_KEY, token);
-
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
-
-export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
-
-export const isAuthenticated = () => Boolean(getToken());
+/**
+ * Clears the local session hint and tells the server to expire the HttpOnly cookie.
+ */
+export async function logout(): Promise<void> {
+    localStorage.removeItem("gh_session_exp");
+    await fetch(`${BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+    });
+}

@@ -1,25 +1,28 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import { isAuthenticated } from "./lib/api";
+import { checkAuth } from "./lib/api";
 import Dashboard from "./pages/Dashboard";
 import DashboardLayout from "./components/DashboardLayout";
 
-// Redirect to login if not authenticated
+// Renders children only when session is valid, otherwise redirects to login
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    return isAuthenticated() ? (
+    return checkAuth() ? (
         <DashboardLayout>{children}</DashboardLayout>
     ) : (
         <Navigate to="/login" replace />
     );
 };
 
-
+// Redirects already-logged-in users away from the login page
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+    return checkAuth() ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+};
 
 const App = () => (
     <BrowserRouter>
         <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={isAuthenticated() ? <Navigate to="/dashboard" /> : <Login />} />
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route
                 path="/dashboard"
                 element={

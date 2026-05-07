@@ -1,5 +1,7 @@
 import { NavLink } from "@/components/ui/sideBar/NavLink";
+import { useNavigate } from "react-router-dom";
 import { Users, LayoutDashboard, ShoppingCart, LogOut } from "lucide-react";
+import { logout } from "@/lib/Api/loginApi";
 import { cn } from "@/lib/utils";
 import GoldHouseLogo from "../goldHouseLogo";
 
@@ -8,6 +10,17 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isCollapsed }: SidebarProps) => {
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate("/login");
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
+    };
+
     return (
         <aside className={cn(
             "relative bg-card border-r border-border flex-shrink-0 transition-all duration-200 bg-primary",
@@ -71,12 +84,13 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
                 </ul>
             </nav>
-            <div
-                className="mx-6  my-4  absolute inset-x-0 bottom-0 group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:text-destructive/80 hover:bg-destructive/10 transition-all duration-200"
+            <button
+                onClick={handleLogout}
+                className="mx-6 w-[calc(100%-3rem)] my-4 absolute inset-x-0 bottom-0 group border-0 bg-transparent flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:text-destructive/80 hover:bg-destructive/10 transition-all duration-200 cursor-pointer"
             >
                 <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className={cn("tracking-wide", isCollapsed && "opacity-0 hidden")} >Logout</span>
-            </div>
+            </button>
         </aside>
     );
 };

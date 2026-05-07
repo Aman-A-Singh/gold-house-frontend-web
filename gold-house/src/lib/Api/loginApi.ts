@@ -55,7 +55,7 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
 export function checkAuth(): boolean {
     const exp = localStorage.getItem("gh_session_exp");
     if (!exp) return false;
-    return Date.now() < Number(exp);
+    return true;
 }
 
 /**

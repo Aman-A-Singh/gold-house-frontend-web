@@ -1,6 +1,6 @@
 import { ArrowRight, Clock } from "lucide-react";
 import StatCardsSection from "@/components/ui/statsCard";
-
+import OrdersTable from "@/components/ui/ordersTable/OrdersTable";
 import { Link } from "react-router-dom";
 
 
@@ -27,6 +27,15 @@ const Dashboard = () => {
             </div>
 
             <StatCardsSection />
+
+            <div className="space-y-6 flex items-center justify-between">
+                <h2 className="text-lg font-display text-foreground">Recent Orders</h2>
+                <Link to="/orders" className="text-lg text-accent font-display hover:underline flex items-center gap-1">
+                    View all <ArrowRight size={20} />
+                </Link>
+            </div>
+            <OrdersTable />
+
         </div>
     );
 }

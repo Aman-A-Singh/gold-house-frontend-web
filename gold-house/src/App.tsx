@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import { checkAuth } from "./lib/api";
+import { checkAuth } from "./lib/Api/loginApi";
 import Dashboard from "./pages/Dashboard";
 import DashboardLayout from "./components/DashboardLayout";
 
@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return checkAuth() ? (
         <DashboardLayout>{children}</DashboardLayout>
     ) : (
-        <Navigate to="/login" replace />
+        <Navigate to="/dashboard" replace />
     );
 };
 
@@ -21,7 +21,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 const App = () => (
     <BrowserRouter>
         <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route
                 path="/dashboard"

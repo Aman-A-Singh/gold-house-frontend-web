@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react";
-import { login } from "@/lib/api";
+import { login } from "@/lib/Api/loginApi";
 
 const Login = () => {
     const navigate = useNavigate();

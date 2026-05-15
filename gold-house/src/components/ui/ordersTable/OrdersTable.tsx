@@ -1,15 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Package, Plus, Search, Filter, Calendar } from "lucide-react";
 import { useState } from "react";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/ordersTable/DropDownMenu";
+import { Order } from "@/models/order";
 
 
 type SortKey = "id" | "customer" | "weight" | "status" | "date" | "result";
 
-const OrdersTable = ({ showAddButton = true }: { showAddButton?: boolean }) => {
+const OrdersTable = ({ showAddButton = true, orders }: { showAddButton?: boolean, orders: Order[] }) => {
     const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
+
     const columns: { key: SortKey; label: string }[] = [
         { key: "id", label: "Order ID" },
         { key: "customer", label: "Customer" },
@@ -18,25 +18,28 @@ const OrdersTable = ({ showAddButton = true }: { showAddButton?: boolean }) => {
         { key: "date", label: "Date" },
         { key: "status", label: "Status" }
     ];
+
+    const filteredOrders = orders
+
     return (
         <>
             <section className="bg-card rounded-2xl shadow-sm border border-border animate-fade-in overflow-hidden" aria-label="Orders management">
                 {/* Header bar */}
-                <HeaderBar showAddButton={showAddButton} />
+                <HeaderBar showAddButton={showAddButton} orders={orders} />
 
                 {/* Toolbar */}
-                {newFunction(search, setSearch)}
+                <Toolbar search={search} setSearch={setSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
 
                 {/* Table */}
                 <div className="overflow-x-auto" role="region" aria-label="Orders table" tabIndex={0}>
                     <table className="w-full text-left text-sm">
                         <TableHeader columns={columns} />
                         <tbody>
-                            <TableRow />
-                            <TableRow />
-                            <TableRow />
-                            <TableRow />
-                            <TableRow />
+                            {filteredOrders.length === 0 ? (
+                                <tr><td colSpan={6} className="text-center py-4">No orders found</td></tr>
+                            ) : (
+                                filteredOrders.map(order => <TableRow key={order.orderId} order={order} />)
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -47,7 +50,10 @@ const OrdersTable = ({ showAddButton = true }: { showAddButton?: boolean }) => {
 
 export default OrdersTable;
 
-const HeaderBar = ({ showAddButton = true }: { showAddButton?: boolean }) => {
+const HeaderBar = ({ showAddButton = true, orders = [] }: { showAddButton?: boolean, orders?: Order[] }) => {
+    const total = orders.length;
+    const pending = orders.filter(order => order.orderStatus === "PENDING").length;
+    const delivered = orders.filter(order => order.orderStatus === "DELIVERED").length;
     return <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-5 bg-gradient-to-r from-card to-muted/30 border-b border-border">
         <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl gradient-gold flex items-center justify-center">
@@ -55,7 +61,7 @@ const HeaderBar = ({ showAddButton = true }: { showAddButton?: boolean }) => {
             </div>
             <div>
                 <h3 className="text-base font-semibold text-foreground">Orders</h3>
-                <p className="text-xs text-muted-foreground">{1} total · {1} pending · {1} delivered</p>
+                <p className="text-xs text-muted-foreground">{total} total · {pending} pending · {delivered} delivered</p>
             </div>
         </div>
         <div className="flex items-center gap-2">
@@ -86,7 +92,7 @@ const TableHeader = ({ columns }: { columns: { key: SortKey; label: string }[] }
         </thead>
     );
 }
-function newFunction(search: string, setSearch: (search: string) => void) {
+const Toolbar = ({ search, setSearch, statusFilter, setStatusFilter }: { search: string, setSearch: (s: string) => void, statusFilter: string, setStatusFilter: (s: string) => void }) => {
     return <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 border-b border-border" role="toolbar" aria-label="Orders toolbar">
         <div className="relative w-full sm:w-72">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -96,8 +102,8 @@ function newFunction(search: string, setSearch: (search: string) => void) {
             <legend className="sr-only">Filter by status</legend>
             <Filter size={14} className="text-muted-foreground mr-1" aria-hidden="true" />
             {(["All", "Pending", "Delivered", "Cancelled"] as const).map((s) => (
-                <button key={s} onClick={() => { }} aria-pressed={false}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${false ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
+                <button key={s} onClick={() => setStatusFilter(s)} aria-pressed={statusFilter === s}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === s ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
                     {s}
                 </button>
             ))}
@@ -105,47 +111,47 @@ function newFunction(search: string, setSearch: (search: string) => void) {
     </div>;
 }
 
-const TableRow = () => {
+const TableRow = ({ order }: { order: Order }) => {
     const statusColors: Record<string, string> = {
-        Pending: "bg-status-pending-bg text-status-pending",
-        Delivered: "bg-status-delivered-bg text-status-delivered",
-        Cancelled: "bg-destructive/10 text-destructive",
+        PENDING: "bg-status-pending-bg text-status-pending",
+        DELIVERED: "bg-status-delivered-bg text-status-delivered",
+        CANCELED: "bg-destructive/20 text-destructive",
     };
     return (
         <>
-            <tr /*key={order.id}*/ className="border-b border-border last:border-none hover:bg-muted/40 transition group" >
+            <tr className="border-b border-border last:border-none hover:bg-muted/40 transition group" >
                 {/* Order ID */}
                 <td className="px-5 py-3.5">
-                    <span className="font-mono font-semibold text-foreground">#12345</span>
+                    <span className="font-mono font-semibold text-foreground">#{order.orderId}</span>
                 </td>
 
                 {/* Customer */}
                 <td className="px-5 py-3.5">
                     <div>
-                        <p className="font-medium text-foreground">Aman Singh</p>
-                        {true && <p className="text-xs text-muted-foreground">{7888100592}</p>}
+                        <p className="font-medium text-foreground">{order.customer.name}</p>
+                        {order.customer.phoneNumber && <p className="text-xs text-muted-foreground">{order.customer.phoneNumber}</p>}
                     </div>
                 </td>
                 {/* Weight */}
                 <td className="px-5 py-3.5">
-                    <p className="font-medium">{93.50}</p>
+                    <p className="font-medium">{order.weight}</p>
 
                 </td>
                 {/* Result */}
                 <td className="px-5 py-3.5">
-                    <p className="font-medium">{18.6}</p>
+                    <p className="font-medium">{order.result}</p>
                 </td>
                 {/* Date */}
                 <td className="px-5 py-3.5">
                     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar size={12} aria-hidden="true" /> {"2026-02-03"}
+                        <Calendar size={12} aria-hidden="true" /> {order.orderDate}
                     </span>
                 </td>
                 {/* Status */}
                 <td className="px-5 py-3.5">
                     <button onClick={() => { }}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition hover:opacity-80 ${statusColors["Pending"]}`}
-                        aria-label={`Status: $Pending}. Click to toggle`}>{"Pending"}</button>
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition hover:opacity-80 ${statusColors[order.orderStatus] || "bg-muted text-muted-foreground"}`}
+                        aria-label={`Status: ${order.orderStatus}. Click to toggle`}>{order.orderStatus}</button>
                 </td>
             </tr>
         </>

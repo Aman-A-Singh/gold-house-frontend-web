@@ -7,6 +7,8 @@ import { Button } from "./ui/button";
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
+    const userName = localStorage.getItem("gh_user_name") || "User";
+
     const toggleSidebar = () => setIsCollapsed(!isCollapsed);
     const today = new Date().toLocaleDateString("en-US", {
         year: "numeric",
@@ -21,7 +23,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     <div className="flex items-center gap-3">
                         <div>
                             <h1 className="text-2xl font-display text-foreground">
-                                Welcome, <span className="italic">Amin Y Jumani</span>
+                                Welcome, <span className="italic">{userName}</span>
                             </h1>
                             <p className="text-sm text-muted-foreground mt-0.5" aria-label={`Today's date: ${today}`}>{today}</p>
                         </div>

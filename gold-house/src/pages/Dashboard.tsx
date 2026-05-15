@@ -2,13 +2,25 @@ import { ArrowRight, Clock } from "lucide-react";
 import StatCardsSection from "@/components/ui/statsCard";
 import OrdersTable from "@/components/ui/ordersTable/OrdersTable";
 import { Link } from "react-router-dom";
+import { fetchDashboardStats } from "@/lib/Api/dashboardStatsAPI";
+import { useLoaderData } from "react-router-dom";
+import { DashboardStats } from "@/models/dashboard";
 
+export const dashboardLoader = async () => {
+    const userIdStr = localStorage.getItem("gh_user_id");
+    const userId = userIdStr ? parseInt(userIdStr, 10) : null;
+
+    const [stats] = await Promise.all([
+        fetchDashboardStats(userId),
+    ]);
+    return { stats };
+};
 
 
 const Dashboard = () => {
-    const pendingCount = 5;
+    const { stats } = useLoaderData() as { stats: DashboardStats };
+    const pendingCount = stats?.metrics?.pendingOrders || 0; 
     return (
-
         <div className="space-y-6">
 
             <div className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-5 flex items-center justify-between text-primary-foreground animate-fade-in">
@@ -26,7 +38,7 @@ const Dashboard = () => {
                 </Link>
             </div>
 
-            <StatCardsSection />
+            <StatCardsSection metrics={stats?.metrics} />
 
             <div className="space-y-6 flex items-center justify-between">
                 <h2 className="text-lg font-display text-foreground">Recent Orders</h2>
@@ -34,10 +46,11 @@ const Dashboard = () => {
                     View all <ArrowRight size={20} />
                 </Link>
             </div>
-            <OrdersTable />
+            <OrdersTable orders={stats?.recentOrders || []} />
 
         </div>
     );
+
 }
 
 

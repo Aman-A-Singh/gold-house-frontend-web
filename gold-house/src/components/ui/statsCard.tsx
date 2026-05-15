@@ -1,11 +1,14 @@
+import { DashboardMetrics } from "@/models/dashboard";
 import { FileText, CheckCircle, XCircle, Clock } from "lucide-react";
+
+const StatCardsSection = ({ metrics }: { metrics: DashboardMetrics }) => {
+
 const stats = [
-    { label: "TOTAL ORDERS", value: 10, icon: FileText, gradient: "gradient-gold" },
-    { label: "PENDING", value: 5, icon: Clock, gradient: "gradient-dark" },
-    { label: "DELIVERED", value: 3, icon: CheckCircle, gradient: "gradient-green" },
-    { label: "CANCELLED", value: 2, icon: XCircle, gradient: "bg-gradient-to-br from-destructive/80 to-destructive" },
+    { label: "TOTAL ORDERS", value: metrics.totalOrders, icon: FileText, gradient: "gradient-gold" },
+    { label: "PENDING", value: metrics.pendingOrders, icon: Clock, gradient: "gradient-dark" },
+    { label: "DELIVERED", value: metrics.deliveredOrders, icon: CheckCircle, gradient: "gradient-green" },
+    { label: "CANCELLED", value: metrics.canceledOrders, icon: XCircle, gradient: "bg-gradient-to-br from-destructive/80 to-destructive" },
 ];
-const StatCardsSection = () => {
     return (
         <section aria-label="Order statistics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.map(({ label, value, icon: Icon, gradient }) => (

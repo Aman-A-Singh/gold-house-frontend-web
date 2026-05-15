@@ -1,3 +1,4 @@
+import { User } from "@/models/user";
 const BASE_URL = "/api";
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -7,14 +8,9 @@ export interface LoginRequest {
     password: string;
 }
 
-export interface User {
-    id: string;
-    firstName: string;
-    lastName: string;
-}
-
 export interface LoginResponse {
-    [key: string]: unknown;
+    user: User;
+    token: string;
 }
 
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
@@ -41,6 +37,11 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     // Store only the expiry time — NOT the token itself
     // Matches jwt.expiration = 3600000 (1 hour) in application.properties
     localStorage.setItem("gh_session_exp", String(Date.now() + 3600000));
+    // Store the user ID and name
+    if (data.data && data.data.user) {
+        localStorage.setItem("gh_user_id", String(data.data.user.id));
+        localStorage.setItem("gh_user_name", `${data.data.user.firstName} ${data.data.user.lastName}`);
+    }
 
     return data.data;
 }
@@ -63,6 +64,8 @@ export function checkAuth(): boolean {
  */
 export async function logout(): Promise<void> {
     localStorage.removeItem("gh_session_exp");
+    localStorage.removeItem("gh_user_id");
+    localStorage.removeItem("gh_user_name");
     await fetch(`${BASE_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",

@@ -11,7 +11,7 @@ export interface Order {
     orderTime: string;
     deliverDate: string | null;
     deliverTime: string | null;
-    orderStatus: string;
+    orderStatus: "Pending" | "Delivered" | "Cancelled";
     stampNo: number;
     wastage: number;
 }

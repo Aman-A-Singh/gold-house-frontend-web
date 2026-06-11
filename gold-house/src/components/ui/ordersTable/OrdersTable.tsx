@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Package, Plus, Search, Filter, Calendar } from "lucide-react";
 import { useState } from "react";
 import { Order } from "@/models/order";
+import AddOrdersDialog from "@/components/ui/dialogs/AddOrdersDialog";
+import { Toaster } from "@/components/ui/toast/sonner";
 
 
 type SortKey = "id" | "customer" | "weight" | "status" | "date" | "result";
@@ -9,6 +11,7 @@ type SortKey = "id" | "customer" | "weight" | "status" | "date" | "result";
 const OrdersTable = ({ showAddButton = true, orders }: { showAddButton?: boolean, orders: Order[] }) => {
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
+     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
     const columns: { key: SortKey; label: string }[] = [
         { key: "id", label: "Order ID" },
@@ -25,7 +28,7 @@ const OrdersTable = ({ showAddButton = true, orders }: { showAddButton?: boolean
         <>
             <section className="bg-card rounded-2xl shadow-sm border border-border animate-fade-in overflow-hidden" aria-label="Orders management">
                 {/* Header bar */}
-                <HeaderBar showAddButton={showAddButton} orders={orders} />
+                <HeaderBar showAddButton={showAddButton} orders={orders} onAddClick={() => setIsAddDialogOpen(true)} />
 
                 {/* Toolbar */}
                 <Toolbar search={search} setSearch={setSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
@@ -44,16 +47,18 @@ const OrdersTable = ({ showAddButton = true, orders }: { showAddButton?: boolean
                     </table>
                 </div>
             </section>
+            <AddOrdersDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
+            <Toaster />
         </>
     );
 }
 
 export default OrdersTable;
 
-const HeaderBar = ({ showAddButton = true, orders = [] }: { showAddButton?: boolean, orders?: Order[] }) => {
+const HeaderBar = ({ showAddButton = true, orders = [], onAddClick }: { showAddButton?: boolean, orders?: Order[], onAddClick?: () => void }) => {
     const total = orders.length;
-    const pending = orders.filter(order => order.orderStatus === "PENDING").length;
-    const delivered = orders.filter(order => order.orderStatus === "DELIVERED").length;
+    const pending = orders.filter(order => order.orderStatus === "Pending").length;
+    const delivered = orders.filter(order => order.orderStatus === "Delivered").length;
     return <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-5 bg-gradient-to-r from-card to-muted/30 border-b border-border">
         <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl gradient-gold flex items-center justify-center">
@@ -67,7 +72,7 @@ const HeaderBar = ({ showAddButton = true, orders = [] }: { showAddButton?: bool
         <div className="flex items-center gap-2">
 
             {showAddButton && (
-                <Button size="sm" onClick={() => { }} aria-label="Create new order">
+                <Button size="sm" onClick={onAddClick} aria-label="Create new order">
                     <Plus size={14} className="mr-1.5" /> New Order
                 </Button>
             )}
@@ -110,13 +115,20 @@ const Toolbar = ({ search, setSearch, statusFilter, setStatusFilter }: { search:
         </fieldset>
     </div>;
 }
+ const formatDisplayDate = (dateStr: string) => {
+        if (!dateStr) return "";
+        const [year, month, day] = dateStr.split("-");
+        return `${day}/${month}/${year}`;
+    };
 
 const TableRow = ({ order }: { order: Order }) => {
     const statusColors: Record<string, string> = {
         PENDING: "bg-status-pending-bg text-status-pending",
         DELIVERED: "bg-status-delivered-bg text-status-delivered",
-        CANCELED: "bg-destructive/20 text-destructive",
+        CANCELLED: "bg-destructive/20 text-destructive",
     };
+
+   
     return (
         <>
             <tr className="border-b border-border last:border-none hover:bg-muted/40 transition group" >
@@ -144,7 +156,7 @@ const TableRow = ({ order }: { order: Order }) => {
                 {/* Date */}
                 <td className="px-5 py-3.5">
                     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar size={12} aria-hidden="true" /> {order.orderDate}
+                        <Calendar size={12} aria-hidden="true" /> {formatDisplayDate(order.orderDate)}
                     </span>
                 </td>
                 {/* Status */}

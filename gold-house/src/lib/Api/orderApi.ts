@@ -13,3 +13,18 @@ export const getAllOrders = async (page: number = 0, size: number = 9999): Promi
     const data = await response.json();
     return data.data.content;
 };
+
+
+export const addOrder = async (order: Order): Promise<Order> => {
+    const response = await fetch(`/api/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(order),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to add order: ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.data;
+};

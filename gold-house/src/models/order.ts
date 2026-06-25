@@ -1,7 +1,7 @@
 export interface Order {
     orderId: string;
     customer: {
-        id: number;
+        id: number | null;
         name: string;
         phoneNumber: number;
     };
@@ -11,7 +11,7 @@ export interface Order {
     orderTime: string;
     deliverDate: string | null;
     deliverTime: string | null;
-    orderStatus: "Pending" | "Delivered" | "Cancelled";
+    orderStatus: "PENDING" | "DELIVERED" | "CANCELLED";
     stampNo: number;
     wastage: number;
 }

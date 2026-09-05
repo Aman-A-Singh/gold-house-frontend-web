@@ -1,24 +1,42 @@
 import { ArrowRight, Clock } from "lucide-react";
 import StatCardsSection from "@/components/ui/statsCard";
 import OrdersTable from "@/components/ui/ordersTable/OrdersTable";
-import { Link } from "react-router-dom";
-import { fetchDashboardStats } from "@/lib/Api/dashboardStatsAPI";
-import { useLoaderData } from "react-router-dom";
+import { Link, useLoaderData, useNavigation, LoaderFunctionArgs } from "react-router-dom";
+import { fetchDashboardStats, fetchDashboardOrders } from "@/lib/Api/dashboardStatsAPI";
 import { DashboardStats } from "@/models/dashboard";
+import { Order } from "@/models/order";
 
-export const dashboardLoader = async () => {
+export const dashboardLoader = async ({ request }: LoaderFunctionArgs) => {
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status");
+    const sortKey = url.searchParams.get("sortKey");
+    const sortDir = url.searchParams.get("sortDir") as "asc" | "desc" | null;
+    const searchQuery = url.searchParams.get("q");
+
     const userIdStr = localStorage.getItem("gh_user_id");
     const userId = userIdStr ? parseInt(userIdStr, 10) : null;
 
-    const [stats] = await Promise.all([
-        fetchDashboardStats(userId),
-    ]);
-    return { stats };
+    // 1. Fetch Stats API first and wait for completion
+    const stats = await fetchDashboardStats(userId);
+
+    // 2. Once Stats API finishes, call Dashboard Orders API
+    const dashboardOrders = await fetchDashboardOrders({
+        status: status === "All" ? null : status?.toUpperCase(),
+        page: 0,
+        size: 9999,
+        sortKey,
+        sortDir,
+        searchQuery: searchQuery || null,
+    }).catch(() => []);
+
+    return { stats, dashboardOrders };
 };
 
 
 const Dashboard = () => {
-    const { stats } = useLoaderData() as { stats: DashboardStats };
+    const { stats, dashboardOrders } = useLoaderData() as { stats: DashboardStats; dashboardOrders: Order[] };
+    const navigation = useNavigation();
+    const isLoading = navigation.state === "loading";
     const pendingCount = stats?.metrics?.pendingOrders || 0; 
     return (
         <div className="space-y-6">
@@ -46,14 +64,11 @@ const Dashboard = () => {
                     View all <ArrowRight size={20} />
                 </Link>
             </div>
-            <OrdersTable orders={stats?.recentOrders || []} />
+            <OrdersTable orders={dashboardOrders || []} showAddButton={false} isLoading={isLoading} />
 
         </div>
     );
 
 }
-
-
-
 
 export default Dashboard;

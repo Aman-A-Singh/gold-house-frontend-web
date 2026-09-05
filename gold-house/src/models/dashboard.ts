@@ -1,10 +1,8 @@
 import { User } from "@/models/user";
-import { Order } from "./order";
 
 export interface DashboardStats {
-    user : User;
+    user?: User;
     metrics: DashboardMetrics;
-    recentOrders: Order[];
 }
 
 export interface DashboardMetrics {
@@ -12,4 +10,5 @@ export interface DashboardMetrics {
     pendingOrders: number;
     deliveredOrders: number;
     canceledOrders: number;
+    todayOrders?: number;
 }

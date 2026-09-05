@@ -3,9 +3,18 @@ import Sidebar from "./ui/sideBar/Sidebar";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import { useNavigation, useLocation } from "react-router-dom";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const navigation = useNavigation();
+    const location = useLocation();
+
+    // Detect when changing between different page routes (e.g. /dashboard -> /orders)
+    const isPageChanging =
+        navigation.state === "loading" &&
+        Boolean(navigation.location) &&
+        navigation.location?.pathname !== location.pathname;
 
     const userName = localStorage.getItem("gh_user_name") || "User";
 
@@ -29,8 +38,14 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     </div>
                 </header>
-                <main id="main-content" className="flex-1 p-8" role="main" tabIndex={-1}>
-                    {children}
+                <main id="main-content" className="flex-1 p-8 relative" role="main" tabIndex={-1}>
+                    {isPageChanging ? (
+                        <div className="flex items-center justify-center min-h-[400px]">
+                            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    ) : (
+                        children
+                    )}
                 </main>
             </div>
 

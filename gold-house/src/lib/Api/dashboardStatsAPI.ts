@@ -23,8 +23,17 @@ export const fetchDashboardStats = async (userId: number | null, forceRefresh = 
     return data.data;
 };
 
+export interface PagedDashboardOrdersResult {
+    content: Order[];
+    pageNumber: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+}
+
 export const fetchDashboardOrders = async (
-    { page = 0, size = 9999, status, sortKey, sortDir, searchQuery }: {
+    { page = 0, size = 10, status, sortKey, sortDir, searchQuery }: {
         page?: number;
         size?: number;
         searchQuery?: string | null;
@@ -32,7 +41,7 @@ export const fetchDashboardOrders = async (
         sortKey?: string | null;
         sortDir?: "asc" | "desc" | null;
     } = {}
-): Promise<Order[]> => {
+): Promise<PagedDashboardOrdersResult> => {
     const params = new URLSearchParams({
         page: page.toString(),
         size: size.toString(),
@@ -58,9 +67,17 @@ export const fetchDashboardOrders = async (
         credentials: "include",
     });
     if (!response.ok) {
-        // Return empty array if backend endpoint is not yet ready or returns error
-        return [];
+        // Return empty result if backend endpoint is not yet ready or returns error
+        return { content: [], pageNumber: 0, pageSize: size, totalElements: 0, totalPages: 0, last: true };
     }
     const data = await response.json();
-    return data.data?.content || [];
+    const raw = data.data || {};
+    return {
+        content: raw.content ?? [],
+        pageNumber: raw.currentPage ?? raw.pageNumber ?? 0,
+        pageSize: raw.pageSize ?? size,
+        totalElements: raw.totalItems ?? raw.totalElements ?? 0,
+        totalPages: raw.totalPages ?? 0,
+        last: raw.last ?? true,
+    };
 };

@@ -1,7 +1,16 @@
 import { Order } from  "@/models/order";
 
+export interface PagedOrderResult {
+    content: Order[];
+    pageNumber: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+}
+
 export const getFilteredOrders = async (
-    { page = 0, size = 9999, status, sortKey, sortDir,searchQuery }: {
+    { page = 0, size = 10, status, sortKey, sortDir, searchQuery }: {
         page?: number;
         size?: number;
         searchQuery?: string | null;
@@ -9,7 +18,7 @@ export const getFilteredOrders = async (
         sortKey?: string | null;
         sortDir?: "asc" | "desc" | null;
     }
-): Promise<Order[]> => {
+): Promise<PagedOrderResult> => {
     const params = new URLSearchParams({
         page: page.toString(),
         size: size.toString(),
@@ -37,7 +46,15 @@ export const getFilteredOrders = async (
         throw new Error(`Failed to fetch orders: ${response.status} ${response.statusText}`);
     }
     const data = await response.json();
-    return data.data.content;
+    const raw = data.data || {};
+    return {
+        content: raw.content ?? [],
+        pageNumber: raw.currentPage ?? raw.pageNumber ?? 0,
+        pageSize: raw.pageSize ?? size,
+        totalElements: raw.totalItems ?? raw.totalElements ?? 0,
+        totalPages: raw.totalPages ?? 0,
+        last: raw.last ?? true,
+    };
 };
 
 

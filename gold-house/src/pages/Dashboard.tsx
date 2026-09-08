@@ -1,35 +1,27 @@
 import { ArrowRight, Clock } from "lucide-react";
 import StatCardsSection from "@/components/ui/statsCard";
 import OrdersTable from "@/components/ui/ordersTable/OrdersTable";
-import { Link, useLoaderData, useNavigation, LoaderFunctionArgs } from "react-router-dom";
-import { fetchDashboardStats, fetchDashboardOrders } from "@/lib/Api/dashboardStatsAPI";
+import { Link, useLoaderData, useNavigation } from "react-router-dom";
+import { fetchDashboardStats, fetchDashboardOrders, PagedDashboardOrdersResult } from "@/lib/Api/dashboardStatsAPI";
 import { DashboardStats } from "@/models/dashboard";
 import { Order } from "@/models/order";
 
-export const dashboardLoader = async ({ request }: LoaderFunctionArgs) => {
-    const url = new URL(request.url);
-    const status = url.searchParams.get("status");
-    const sortKey = url.searchParams.get("sortKey");
-    const sortDir = url.searchParams.get("sortDir") as "asc" | "desc" | null;
-    const searchQuery = url.searchParams.get("q");
-
+export const dashboardLoader = async () => {
     const userIdStr = localStorage.getItem("gh_user_id");
     const userId = userIdStr ? parseInt(userIdStr, 10) : null;
 
     // 1. Fetch Stats API first and wait for completion
     const stats = await fetchDashboardStats(userId);
 
-    // 2. Once Stats API finishes, call Dashboard Orders API
-    const dashboardOrders = await fetchDashboardOrders({
-        status: status === "All" ? null : status?.toUpperCase(),
+    // 2. Once Stats API finishes, fetch the 10 most recent orders for the preview table
+    const dashboardOrdersResult = await fetchDashboardOrders({
         page: 0,
-        size: 9999,
-        sortKey,
-        sortDir,
-        searchQuery: searchQuery || null,
-    }).catch(() => []);
+        size: 10,
+        sortKey: "orderDate",
+        sortDir: "desc",
+    }).catch((): PagedDashboardOrdersResult => ({ content: [], pageNumber: 0, pageSize: 10, totalElements: 0, totalPages: 0, last: true }));
 
-    return { stats, dashboardOrders };
+    return { stats, dashboardOrders: dashboardOrdersResult.content };
 };
 
 

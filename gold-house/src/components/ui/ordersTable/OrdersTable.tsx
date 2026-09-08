@@ -1,10 +1,17 @@
 import { Button } from "@/components/ui/button";
-import { Package, Plus, Search, Filter, Calendar, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Package, Plus, Search, Filter, Calendar, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Order } from "@/models/order";
 import AddOrdersDialog from "@/components/ui/dialogs/AddOrdersDialog";
 import { Toaster } from "@/components/ui/toast/sonner";
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+} from "@/components/ui/ordersTable/DropDownMenu";
 
 
 type SortKey = "id" | "customer.name" | "weight" | "orderStatus" | "orderDate" | "result";
@@ -13,6 +20,12 @@ type SortDirection = "ASC" | "DESC";
 interface OrdersTableProps {
     showAddButton?: boolean;
     orders: Order[];
+    pagination?: {
+        pageNumber: number;
+        pageSize: number;
+        totalElements: number;
+        totalPages: number;
+    };
     isLoading?: boolean;
 }
 
@@ -29,10 +42,13 @@ const TableLoadingView = () => {
     );
 };
 
-const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: OrdersTableProps) => {
-     const [searchParams, setSearchParams] = useSearchParams({ status: "All", q: "", sortKey: "orderDate", sortDir: "DESC" });
+const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading = false }: OrdersTableProps) => {
+     const [searchParams, setSearchParams] = useSearchParams({ status: "All", q: "", sortKey: "orderDate", sortDir: "DESC", page: "0", size: "10" });
      const statusFilter = searchParams.get("status") || "All";
      const search = searchParams.get("q") || "";
+     const page = parseInt(searchParams.get("page") || "0", 10);
+     const size = parseInt(searchParams.get("size") || "10", 10);
+
      const [localSearch, setLocalSearch] = useState(search);
      const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
      const [isDebouncing, setIsDebouncing] = useState(false);
@@ -55,7 +71,7 @@ const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: O
     ];
 
     // Atomically commit searchParams while cancelling any pending debounced search timer
-    const commitTableParams = (updates: { q?: string; status?: string; sortKey?: SortKey; sortDir?: SortDirection }) => {
+    const commitTableParams = (updates: { q?: string; status?: string; sortKey?: SortKey; sortDir?: SortDirection; page?: number; size?: number }) => {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
             timerRef.current = null;
@@ -64,6 +80,8 @@ const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: O
         setSearchParams(prev => {
             const currentSortKey = prev.get("sortKey");
             const currentSortDir = prev.get("sortDir");
+            const currentPage = prev.get("page") || "0";
+            const currentSize = prev.get("size") || "10";
 
             const nextQ = updates.q !== undefined ? updates.q : localSearch;
             if (nextQ) {
@@ -82,6 +100,14 @@ const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: O
 
             if (nextSortKey) prev.set("sortKey", nextSortKey);
             if (nextSortDir) prev.set("sortDir", nextSortDir);
+
+            // Determine page and size (reset page to 0 if q, status, sortKey or size changed unless explicit page specified)
+            const isFilterOrSortChange = updates.q !== undefined || updates.status !== undefined || updates.sortKey !== undefined || updates.size !== undefined;
+            const nextPage = updates.page !== undefined ? updates.page : (isFilterOrSortChange ? 0 : parseInt(currentPage, 10));
+            const nextSize = updates.size !== undefined ? updates.size : parseInt(currentSize, 10);
+
+            prev.set("page", nextPage.toString());
+            prev.set("size", nextSize.toString());
 
             return prev;
         }, { replace: true });
@@ -113,6 +139,14 @@ const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: O
         commitTableParams({ sortKey: newSortKey, sortDir: newSortDir, q: localSearch });
     };
 
+    const handlePageChange = (newPage: number) => {
+        commitTableParams({ page: newPage });
+    };
+
+    const handleSizeChange = (newSize: number) => {
+        commitTableParams({ size: newSize, page: 0 });
+    };
+
     useEffect(() => {
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
@@ -129,6 +163,14 @@ const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: O
     // Backend handles all filtering & sorting for both Orders page and Dashboard
     const filteredOrders = orders;
     const showTableLoading = isLoading || isDebouncing;
+
+    // Derived pagination details
+    // page & size always come from URL params — the source of truth for what was requested.
+    // totalElements & totalPages come from the API response since the frontend can't know them otherwise.
+    const activePage = page;
+    const activeSize = size;
+    const totalElements = pagination ? pagination.totalElements : orders.length;
+    const totalPages = pagination ? pagination.totalPages : Math.ceil(orders.length / activeSize);
 
     return (
         <>
@@ -159,12 +201,130 @@ const OrdersTable = ({ showAddButton = true, orders = [], isLoading = false }: O
                         </tbody>
                     </table>
                 </div>
+
+                {/* Table Pagination */}
+                <TablePagination
+                    page={activePage}
+                    size={activeSize}
+                    totalPages={totalPages}
+                    totalElements={totalElements}
+                    onPageChange={handlePageChange}
+                    onSizeChange={handleSizeChange}
+                />
             </section>
             <AddOrdersDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
             <Toaster />
         </>
     );
 }
+
+const TablePagination = ({
+    page,
+    size,
+    totalPages,
+    totalElements,
+    onPageChange,
+    onSizeChange,
+}: {
+    page: number;
+    size: number;
+    totalPages: number;
+    totalElements: number;
+    onPageChange: (newPage: number) => void;
+    onSizeChange: (newSize: number) => void;
+}) => {
+    const startItem = totalElements > 0 ? page * size + 1 : 0;
+    const endItem = Math.min((page + 1) * size, totalElements);
+
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border bg-card/50 text-sm text-muted-foreground">
+            <div>
+                Showing <span className="font-medium text-foreground">{startItem}</span> to{" "}
+                <span className="font-medium text-foreground">{endItem}</span> of{" "}
+                <span className="font-medium text-foreground">{totalElements}</span> orders
+            </div>
+
+            <div className="flex items-center gap-6">
+                {/* Rows Per Page Dropdown Menu */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs">Rows per page:</span>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium">
+                                {size}
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-24">
+                            <DropdownMenuRadioGroup value={size.toString()} onValueChange={(val) => onSizeChange(parseInt(val, 10))}>
+                                {[5, 10, 20, 50].map((pageSize) => (
+                                    <DropdownMenuRadioItem key={pageSize} value={pageSize.toString()} className="text-xs cursor-pointer">
+                                        {pageSize} rows
+                                    </DropdownMenuRadioItem>
+                                ))}
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+
+                {/* Page Navigation */}
+                {totalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                        {/* Previous Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onPageChange(page - 1)}
+                            disabled={page <= 0}
+                            className="h-8 px-2.5 text-xs gap-1"
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                        </Button>
+
+                        {/* Page Numbers with Ellipsis */}
+                        {Array.from({ length: totalPages }, (_, i) => i)
+                            .filter((p) => p === 0 || p === totalPages - 1 || Math.abs(p - page) <= 1)
+                            .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
+                                acc.push(p);
+                                return acc;
+                            }, [])
+                            .map((p, idx) =>
+                                p === "ellipsis" ? (
+                                    <span key={`e-${idx}`} className="px-1.5 text-xs text-muted-foreground select-none">…</span>
+                                ) : (
+                                    <Button
+                                        key={p}
+                                        variant={page === p ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => onPageChange(p as number)}
+                                        className="h-8 w-8 p-0 text-xs"
+                                        aria-label={`Page ${(p as number) + 1}`}
+                                        aria-current={page === p ? "page" : undefined}
+                                    >
+                                        {(p as number) + 1}
+                                    </Button>
+                                )
+                            )}
+
+                        {/* Next Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onPageChange(page + 1)}
+                            disabled={page >= totalPages - 1}
+                            className="h-8 px-2.5 text-xs gap-1"
+                            aria-label="Next page"
+                        >
+                            Next <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 export default OrdersTable;
 

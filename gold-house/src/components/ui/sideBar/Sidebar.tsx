@@ -23,20 +23,20 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
 
     return (
         <aside className={cn(
-            "relative bg-card border-r border-border flex-shrink-0 transition-all duration-200 bg-primary",
+            "relative bg-card border-r border-border flex-shrink-0 transition-all duration-200 bg-primary h-full flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain pb-4 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10",
             isCollapsed ? "w-24" : "w-64"
         )}>
-            <div className="pl-0 pt-8 relative">
+            <div className="pl-0 pt-8 relative shrink-0">
                 <GoldHouseLogo
                     className={cn("mx-auto relative", !isCollapsed && "hidden")}></GoldHouseLogo>
             </div>
 
-            <div className={cn("p-4  mx-3  relative", isCollapsed ? "opacity-0 hidden" : "opacity-100")}>
+            <div className={cn("p-4  mx-3  relative shrink-0", isCollapsed ? "opacity-0 hidden" : "opacity-100")}>
                 <h2 className="text-2xl font-bold text-secondary tracking-wider transition-opacity">
                     GOLD HOUSE
                 </h2>
             </div>
-            <div className="flex px-4 relative">
+            <div className="flex px-4 relative shrink-0">
                 <div className={cn("mx-6 text-sm text-muted-foreground text-sidebar-foreground/70 transition-opacity", isCollapsed ? "opacity-0 hidden" : "opacity-100  mx-l̥4")}>
                     MAIN MENU
                 </div>
@@ -86,7 +86,7 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
             </nav>
             <button
                 onClick={handleLogout}
-                className="mx-6 w-[calc(100%-3rem)] my-4 absolute inset-x-0 bottom-0 group border-0 bg-transparent flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:text-destructive/80 hover:bg-destructive/10 transition-all duration-200 cursor-pointer"
+                className="mx-6 mt-auto shrink-0 group border-0 bg-transparent flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:text-destructive/80 hover:bg-destructive/10 transition-all duration-200 cursor-pointer"
             >
                 <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className={cn("tracking-wide", isCollapsed && "opacity-0 hidden")} >Logout</span>

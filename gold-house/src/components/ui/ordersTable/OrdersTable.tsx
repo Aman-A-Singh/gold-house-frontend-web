@@ -1,14 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { Package, Plus, Search, Filter, Calendar, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Package, Plus, Search, Filter, Calendar, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, MoreHorizontal, Eye, Pencil, Printer, Copy, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Order } from "@/models/order";
 import AddOrdersDialog from "@/components/ui/dialogs/AddOrdersDialog";
+import ViewDialog from "@/components/ui/dialogs/ViewDialog";
 import { Toaster } from "@/components/ui/toast/sonner";
+import { toast } from "sonner";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
     DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
 } from "@/components/ui/ordersTable/DropDownMenu";
@@ -32,7 +36,7 @@ interface OrdersTableProps {
 const TableLoadingView = () => {
     return (
         <tr>
-            <td colSpan={6} className="py-12 text-center">
+            <td colSpan={7} className="py-12 text-center">
                 <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
                     <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
                     <span className="text-sm font-medium">Loading orders...</span>
@@ -43,23 +47,24 @@ const TableLoadingView = () => {
 };
 
 const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading = false }: OrdersTableProps) => {
-     const [searchParams, setSearchParams] = useSearchParams({ status: "All", q: "", sortKey: "orderDate", sortDir: "DESC", page: "0", size: "10" });
-     const statusFilter = searchParams.get("status") || "All";
-     const search = searchParams.get("q") || "";
-     const page = parseInt(searchParams.get("page") || "0", 10);
-     const size = parseInt(searchParams.get("size") || "10", 10);
+    const [searchParams, setSearchParams] = useSearchParams({ status: "All", q: "", sortKey: "orderDate", sortDir: "DESC", page: "0", size: "10" });
+    const statusFilter = searchParams.get("status") || "All";
+    const search = searchParams.get("q") || "";
+    const page = parseInt(searchParams.get("page") || "0", 10);
+    const size = parseInt(searchParams.get("size") || "10", 10);
 
-     const [localSearch, setLocalSearch] = useState(search);
-     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-     const [isDebouncing, setIsDebouncing] = useState(false);
-     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [localSearch, setLocalSearch] = useState(search);
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+    const [isDebouncing, setIsDebouncing] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-     const sortKey = searchParams.get("sortKey") as SortKey | null;
-     const sortDir = searchParams.get("sortDir") as SortDirection | null;
+    const sortKey = searchParams.get("sortKey") as SortKey | null;
+    const sortDir = searchParams.get("sortDir") as SortDirection | null;
 
-     useEffect(() => {
-         setLocalSearch(search);
-     }, [search]);
+    useEffect(() => {
+        setLocalSearch(search);
+    }, [search]);
 
     const columns: { key: SortKey; label: string }[] = [
         { key: "id", label: "Order ID" },
@@ -194,9 +199,9 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
                             {showTableLoading ? (
                                 <TableLoadingView />
                             ) : filteredOrders.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No orders found</td></tr>
+                                <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No orders found</td></tr>
                             ) : (
-                                filteredOrders.map(order => <TableRow key={order.orderId} order={order} />)
+                                filteredOrders.map(order => <TableRow key={order.orderId} order={order} onViewDetails={setViewingOrder} />)
                             )}
                         </tbody>
                     </table>
@@ -213,6 +218,7 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
                 />
             </section>
             <AddOrdersDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
+            <ViewDialog order={viewingOrder} open={Boolean(viewingOrder)} onOpenChange={(open) => !open && setViewingOrder(null)} />
             <Toaster />
         </>
     );
@@ -378,6 +384,9 @@ const TableHeader = ({ columns, sortKey, sortDir, onSort }: {
                         </span>
                     </th>
                 ))}
+                <th className="text-center px-5 py-3.5 align-middle font-semibold text-foreground text-xs uppercase tracking-wider select-none" scope="col">
+                    ACTIONS
+                </th>
             </tr>
         </thead>
     );
@@ -418,13 +427,13 @@ const Toolbar = ({
         </fieldset>
     </div>;
 }
- const formatDisplayDate = (dateStr: string) => {
-        if (!dateStr) return "";
-        const [year, month, day] = dateStr.split("-");
-        return `${day}/${month}/${year}`;
-    };
+const formatDisplayDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+};
 
-const TableRow = ({ order }: { order: Order }) => {
+const TableRow = ({ order, onViewDetails }: { order: Order; onViewDetails: (order: Order) => void }) => {
     const statusColors: Record<string, string> = {
         PENDING: "bg-status-pending-bg text-status-pending",
         DELIVERED: "bg-status-delivered-bg text-status-delivered",
@@ -464,6 +473,62 @@ const TableRow = ({ order }: { order: Order }) => {
                 <button onClick={() => { }}
                     className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold transition hover:opacity-80 ${statusColors[order.orderStatus] || "bg-muted text-muted-foreground"}`}
                     aria-label={`Status: ${order.orderStatus}. Click to toggle`}>{order.orderStatus}</button>
+            </td>
+            {/* Actions */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition inline-flex items-center justify-center cursor-pointer data-[state=open]:bg-accent/50"
+                            aria-label={`Actions for order #${order.orderId}`}
+                        >
+                            <MoreHorizontal size={16} />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl border border-border shadow-lg bg-popover text-popover-foreground">
+                        <DropdownMenuItem
+                            onClick={() => onViewDetails(order)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                        >
+                            <Eye size={16} className="text-foreground" />
+                            <span className="font-normal text-foreground">View Details</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {}}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                        >
+                            <Pencil size={16} className="text-foreground" />
+                            <span className="font-normal text-foreground">Edit Order</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {}}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                        >
+                            <Printer size={16} className="text-foreground" />
+                            <span className="font-normal text-foreground">Print Slip</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={() => {
+                                navigator.clipboard.writeText(order.orderId.toString());
+                                toast.success(`Order #${order.orderId} copied to clipboard`);
+                            }}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                        >
+                            <Copy size={16} className="text-foreground" />
+                            <span className="font-normal text-foreground">Copy ID</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="my-1 -mx-1 bg-border" />
+                        <DropdownMenuItem
+                            onClick={() => {}}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                        >
+                            <Trash2 size={16} className="text-destructive" />
+                            <span className="font-normal text-destructive">Delete</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </td>
         </tr>
     );

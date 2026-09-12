@@ -188,7 +188,7 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
 
                 {/* Table */}
                 <div className="overflow-x-auto relative" role="region" aria-label="Orders table" tabIndex={0}>
-                    <table className="w-full text-left text-sm" aria-live="polite">
+                    <table className="w-full text-center text-sm" aria-live="polite">
                         <TableHeader columns={columns} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                         <tbody>
                             {showTableLoading ? (
@@ -369,11 +369,12 @@ const TableHeader = ({ columns, sortKey, sortDir, onSort }: {
             <tr className="border-b border-border bg-muted/30">
                 {columns.map(({ key, label }) => (
                     <th key={key} onClick={() => onSort(key)}
-                        className="text-left px-5 py-3.5 font-semibold text-foreground cursor-pointer select-none hover:bg-accent/50 transition text-xs uppercase tracking-wider"
+                        className="text-center px-5 py-3.5 align-middle font-semibold text-foreground cursor-pointer select-none hover:bg-accent/50 transition text-xs uppercase tracking-wider"
                         tabIndex={0} scope="col" aria-sort={getAriaSort(key)}>
-                        <span className="inline-flex items-center gap-1">
-                            {label}
-                            {sortKey === key ? (sortDir === 'ASC' ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} className="text-muted-foreground/50" />}
+                        <span className="inline-flex items-center justify-center gap-1">
+                            <ArrowUpDown size={12} className="opacity-0 pointer-events-none shrink-0" aria-hidden="true" />
+                            <span>{label}</span>
+                            {sortKey === key ? (sortDir === 'ASC' ? <ArrowUp size={12} className="shrink-0" /> : <ArrowDown size={12} className="shrink-0" />) : <ArrowUpDown size={12} className="text-muted-foreground/50 shrink-0" />}
                         </span>
                     </th>
                 ))}
@@ -430,44 +431,40 @@ const TableRow = ({ order }: { order: Order }) => {
         CANCELLED: "bg-destructive/20 text-destructive",
     };
 
-   
     return (
-        <>
-            <tr className="border-b border-border last:border-none hover:bg-muted/40 transition group" >
-                {/* Order ID */}
-                <td className="px-5 py-3.5">
-                    <span className="font-mono font-semibold text-foreground">#{order.orderId}</span>
-                </td>
+        <tr className="border-b border-border last:border-none hover:bg-muted/40 transition group align-middle">
+            {/* Order ID */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <span className="font-mono font-semibold text-foreground">#{order.orderId}</span>
+            </td>
 
-                {/* Customer */}
-                <td className="px-5 py-3.5">
-                    <div>
-                        <p className="font-medium text-foreground">{order.customer.name}</p>
-                        {order.customer.phoneNumber && <p className="text-xs text-muted-foreground">{order.customer.phoneNumber}</p>}
-                    </div>
-                </td>
-                {/* Weight */}
-                <td className="px-5 py-3.5">
-                    <p className="font-medium">{order.weight}</p>
-
-                </td>
-                {/* Result */}
-                <td className="px-5 py-3.5">
-                    <p className="font-medium">{order.result}</p>
-                </td>
-                {/* Date */}
-                <td className="px-5 py-3.5">
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Calendar size={12} aria-hidden="true" /> {formatDisplayDate(order.orderDate)}
-                    </span>
-                </td>
-                {/* Status */}
-                <td className="px-5 py-3.5">
-                    <button onClick={() => { }}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition hover:opacity-80 ${statusColors[order.orderStatus] || "bg-muted text-muted-foreground"}`}
-                        aria-label={`Status: ${order.orderStatus}. Click to toggle`}>{order.orderStatus}</button>
-                </td>
-            </tr>
-        </>
+            {/* Customer */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <div>
+                    <p className="font-medium text-foreground">{order.customer.name}</p>
+                    {order.customer.phoneNumber && <p className="text-xs text-muted-foreground">{order.customer.phoneNumber}</p>}
+                </div>
+            </td>
+            {/* Weight */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <p className="font-medium">{order.weight}</p>
+            </td>
+            {/* Result */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <p className="font-medium">{order.result}</p>
+            </td>
+            {/* Date */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <span className="inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                    <Calendar size={12} aria-hidden="true" /> {formatDisplayDate(order.orderDate)}
+                </span>
+            </td>
+            {/* Status */}
+            <td className="text-center px-5 py-3.5 align-middle">
+                <button onClick={() => { }}
+                    className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold transition hover:opacity-80 ${statusColors[order.orderStatus] || "bg-muted text-muted-foreground"}`}
+                    aria-label={`Status: ${order.orderStatus}. Click to toggle`}>{order.orderStatus}</button>
+            </td>
+        </tr>
     );
 }

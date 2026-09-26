@@ -3,6 +3,10 @@ import { Order } from "@/models/order";
 
 let statsCache: { userId: number | null; data: DashboardStats; time: number } | null = null;
 
+export const invalidateDashboardStatsCache = () => {
+    statsCache = null;
+};
+
 export const fetchDashboardStats = async (userId: number | null, forceRefresh = false): Promise<DashboardStats> => {
     const now = Date.now();
     // Cache stats for 60 seconds so search/filter changes don't re-trigger backend stats API

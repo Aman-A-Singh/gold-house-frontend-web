@@ -1,6 +1,6 @@
 import { NavLink } from "@/components/ui/sideBar/NavLink";
 import { useNavigate } from "react-router-dom";
-import { Users, LayoutDashboard, ShoppingCart, LogOut } from "lucide-react";
+import { Users, LayoutDashboard, ShoppingCart, LogOut, Printer } from "lucide-react";
 import { logout } from "@/lib/Api/loginApi";
 import { cn } from "@/lib/utils";
 import GoldHouseLogo from "../goldHouseLogo";
@@ -79,6 +79,18 @@ const Sidebar = ({ isCollapsed }: SidebarProps) => {
                         >
                             <Users className="h-5 w-5 shrink-0" aria-hidden="true" />
                             <span className={cn("tracking-wide", isCollapsed && "opacity-0 hidden")}>Customers</span>
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink
+                            to="/bill-templates"
+                            end={false}
+                            className="mx-6  my-4  group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200"
+                            activeClassName="!bg-sidebar-primary !text-sidebar-primary-foreground font-semibold shadow-md"
+                            aria-label="Bill Templates"
+                        >
+                            <Printer className="h-5 w-5 shrink-0" aria-hidden="true" />
+                            <span className={cn("tracking-wide", isCollapsed && "opacity-0 hidden")}>Bill Templates</span>
                         </NavLink>
                     </li>
 

@@ -5,6 +5,8 @@ import { useSearchParams, useRevalidator } from "react-router-dom";
 import { Order } from "@/models/order";
 import { deleteOrder } from "@/lib/Api/orderApi";
 import { invalidateDashboardStatsCache } from "@/lib/Api/dashboardStatsAPI";
+import { printBill } from "@/components/ui/bill/billTemplate";
+import { getDefaultTemplate } from "@/lib/Api/billTemplateApi";
 import AddOrdersDialog from "@/components/ui/dialogs/AddOrdersDialog";
 import ViewDialog from "@/components/ui/dialogs/ViewDialog";
 import DeleteOrderDialog from "@/components/ui/dialogs/DeleteOrderDialog";
@@ -65,8 +67,26 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
     const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
     const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
+    const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
     const [isDebouncing, setIsDebouncing] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handlePrintSlip = async (order: Order) => {
+        try {
+            setPrintingOrderId(String(order.orderId));
+            const template = await getDefaultTemplate();
+            if (!template) {
+                toast.error("No default bill template found. Please create or set one in Bill Templates.");
+                return;
+            }
+            printBill(template, order);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Failed to load default bill template";
+            toast.error(message);
+        } finally {
+            setPrintingOrderId(null);
+        }
+    };
 
     const revalidator = useRevalidator();
 
@@ -292,8 +312,10 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
                                         onViewDetails={setViewingOrder}
                                         onEdit={handleEditOrder}
                                         onDelete={setDeletingOrder}
+                                        onPrint={handlePrintSlip}
                                         isDeleting={deletingIds.has(String(order.orderId))}
                                         isExiting={exitingIds.has(String(order.orderId))}
+                                        isPrinting={printingOrderId === String(order.orderId)}
                                     />
                                 ))
                             )}
@@ -334,7 +356,13 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
                     }
                 }}
             />
-            <ViewDialog order={viewingOrder} open={Boolean(viewingOrder)} onOpenChange={(open) => !open && setViewingOrder(null)} />
+            <ViewDialog
+                order={viewingOrder}
+                open={Boolean(viewingOrder)}
+                onOpenChange={(open) => !open && setViewingOrder(null)}
+                onPrint={handlePrintSlip}
+                isPrinting={Boolean(viewingOrder && printingOrderId === String(viewingOrder.orderId))}
+            />
             <DeleteOrderDialog
                 order={deletingOrder}
                 open={Boolean(deletingOrder)}
@@ -560,15 +588,19 @@ const TableRow = ({
     onViewDetails,
     onEdit,
     onDelete,
+    onPrint,
     isDeleting,
     isExiting,
+    isPrinting,
 }: {
     order: Order;
     onViewDetails: (order: Order) => void;
     onEdit: (order: Order) => void;
     onDelete: (order: Order) => void;
+    onPrint: (order: Order) => void;
     isDeleting: boolean;
     isExiting: boolean;
+    isPrinting?: boolean;
 }) => {
     const statusColors: Record<string, string> = {
         PENDING: "bg-status-pending-bg text-status-pending",
@@ -652,11 +684,18 @@ const TableRow = ({
                                 <span className="font-normal text-foreground">Edit Order</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                                onClick={() => { }}
+                                onClick={() => onPrint(order)}
+                                disabled={isPrinting}
                                 className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
                             >
-                                <Printer size={16} className="text-foreground" />
-                                <span className="font-normal text-foreground">Print Slip</span>
+                                {isPrinting ? (
+                                    <Loader2 size={16} className="animate-spin text-foreground" />
+                                ) : (
+                                    <Printer size={16} className="text-foreground" />
+                                )}
+                                <span className="font-normal text-foreground">
+                                    {isPrinting ? "Printing..." : "Print Slip"}
+                                </span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 onClick={() => {

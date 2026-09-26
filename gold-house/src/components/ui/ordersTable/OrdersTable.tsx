@@ -1,10 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { Package, Plus, Search, Filter, Calendar, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, MoreHorizontal, Eye, Pencil, Printer, Copy, Trash2 } from "lucide-react";
+import { Package, Plus, Search, Filter, Calendar, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, MoreHorizontal, Eye, Pencil, Printer, Copy, Trash2, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useRevalidator } from "react-router-dom";
 import { Order } from "@/models/order";
+import { deleteOrder } from "@/lib/Api/orderApi";
+import { invalidateDashboardStatsCache } from "@/lib/Api/dashboardStatsAPI";
 import AddOrdersDialog from "@/components/ui/dialogs/AddOrdersDialog";
 import ViewDialog from "@/components/ui/dialogs/ViewDialog";
+import DeleteOrderDialog from "@/components/ui/dialogs/DeleteOrderDialog";
 import { Toaster } from "@/components/ui/toast/sonner";
 import { toast } from "sonner";
 import {
@@ -31,6 +34,7 @@ interface OrdersTableProps {
         totalPages: number;
     };
     isLoading?: boolean;
+    onOrderDeleted?: (orderId: string) => void;
 }
 
 const TableLoadingView = () => {
@@ -46,21 +50,32 @@ const TableLoadingView = () => {
     );
 };
 
-const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading = false }: OrdersTableProps) => {
+const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading = false, onOrderDeleted }: OrdersTableProps) => {
     const [searchParams, setSearchParams] = useSearchParams({ status: "All", q: "", sortKey: "orderDate", sortDir: "DESC", page: "0", size: "10" });
     const statusFilter = searchParams.get("status") || "All";
     const search = searchParams.get("q") || "";
     const page = parseInt(searchParams.get("page") || "0", 10);
     const size = parseInt(searchParams.get("size") || "10", 10);
 
+    const [localOrders, setLocalOrders] = useState<Order[]>(orders);
+    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+    const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
     const [localSearch, setLocalSearch] = useState(search);
-    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+    const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
     const [isDebouncing, setIsDebouncing] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    const revalidator = useRevalidator();
+
     const sortKey = searchParams.get("sortKey") as SortKey | null;
     const sortDir = searchParams.get("sortDir") as SortDirection | null;
+
+    useEffect(() => {
+        setLocalOrders(orders);
+    }, [orders]);
 
     useEffect(() => {
         setLocalSearch(search);
@@ -152,6 +167,76 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
         commitTableParams({ size: newSize, page: 0 });
     };
 
+    const handleDeleteOrder = async (orderId: string) => {
+        const idStr = String(orderId).trim();
+        if (!idStr || deletingIds.has(idStr)) return;
+
+        // 1. Immediately indicate row-level loading on only this specific order
+        setDeletingIds(prev => new Set(prev).add(idStr));
+
+        try {
+            // 5-second delay to allow observing the row-level loading state
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            await deleteOrder(idStr);
+
+            // 2. Invalidate dashboard stats cache so metrics update accurately
+            invalidateDashboardStatsCache();
+
+            // 3. Notify parent callback if provided
+            onOrderDeleted?.(idStr);
+
+            // 4. Toast success feedback
+            toast.success(`Order #${idStr} deleted successfully`);
+
+            // 5. Trigger smooth exiting transition
+            setDeletingIds(prev => {
+                const next = new Set(prev);
+                next.delete(idStr);
+                return next;
+            });
+            setExitingIds(prev => new Set(prev).add(idStr));
+
+            // 6. After animation finishes, remove from local list & handle pagination
+            setTimeout(() => {
+                setExitingIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(idStr);
+                    return next;
+                });
+
+                const remaining = localOrders.filter(o => String(o.orderId) !== idStr);
+                setLocalOrders(remaining);
+
+                // If this was the last remaining order on a page > 0, go back one page
+                if (remaining.length === 0 && page > 0) {
+                    commitTableParams({ page: page - 1 });
+                } else {
+                    // Revalidate in background to fetch updated page and server pagination counts
+                    revalidator.revalidate();
+                }
+            }, 300);
+        } catch (error: any) {
+            console.error("Failed to delete order:", error);
+            setDeletingIds(prev => {
+                const next = new Set(prev);
+                next.delete(idStr);
+                return next;
+            });
+            toast.error(error.message || "Failed to delete order. Please try again.");
+        }
+    };
+
+    const handleNewOrder = () => {
+        setEditingOrder(null);
+        setIsOrderDialogOpen(true);
+    };
+
+    const handleEditOrder = (order: Order) => {
+        setEditingOrder(order);
+        setIsOrderDialogOpen(true);
+    };
+
     useEffect(() => {
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);
@@ -165,23 +250,22 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
         }
     }, [orders, isLoading]);
 
-    // Backend handles all filtering & sorting for both Orders page and Dashboard
-    const filteredOrders = orders;
+    const filteredOrders = localOrders;
     const showTableLoading = isLoading || isDebouncing;
 
     // Derived pagination details
-    // page & size always come from URL params — the source of truth for what was requested.
-    // totalElements & totalPages come from the API response since the frontend can't know them otherwise.
     const activePage = page;
     const activeSize = size;
-    const totalElements = pagination ? pagination.totalElements : orders.length;
-    const totalPages = pagination ? pagination.totalPages : Math.ceil(orders.length / activeSize);
+    const deletedCount = Math.max(0, orders.length - localOrders.length);
+    const baseTotal = pagination ? pagination.totalElements : localOrders.length;
+    const totalElements = Math.max(0, baseTotal - deletedCount);
+    const totalPages = pagination ? Math.max(1, Math.ceil(totalElements / activeSize)) : Math.max(1, Math.ceil(localOrders.length / activeSize));
 
     return (
         <>
             <section className="bg-card rounded-2xl shadow-sm border border-border animate-fade-in overflow-hidden" aria-label="Orders management">
                 {/* Header bar */}
-                <HeaderBar showAddButton={showAddButton} orders={orders} onAddClick={() => setIsAddDialogOpen(true)} />
+                <HeaderBar showAddButton={showAddButton} orders={localOrders} onAddClick={handleNewOrder} />
 
                 {/* Toolbar */}
                 <Toolbar
@@ -201,7 +285,17 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
                             ) : filteredOrders.length === 0 ? (
                                 <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">No orders found</td></tr>
                             ) : (
-                                filteredOrders.map(order => <TableRow key={order.orderId} order={order} onViewDetails={setViewingOrder} />)
+                                filteredOrders.map(order => (
+                                    <TableRow
+                                        key={order.orderId}
+                                        order={order}
+                                        onViewDetails={setViewingOrder}
+                                        onEdit={handleEditOrder}
+                                        onDelete={setDeletingOrder}
+                                        isDeleting={deletingIds.has(String(order.orderId))}
+                                        isExiting={exitingIds.has(String(order.orderId))}
+                                    />
+                                ))
                             )}
                         </tbody>
                     </table>
@@ -217,12 +311,40 @@ const OrdersTable = ({ showAddButton = true, orders = [], pagination, isLoading 
                     onSizeChange={handleSizeChange}
                 />
             </section>
-            <AddOrdersDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} />
+            <AddOrdersDialog
+                open={isOrderDialogOpen}
+                onOpenChange={(open) => {
+                    setIsOrderDialogOpen(open);
+                    if (!open) {
+                        setEditingOrder(null);
+                    }
+                }}
+                orderToEdit={editingOrder}
+                onOrderSaved={(saved) => {
+                    revalidator.revalidate();
+                    invalidateDashboardStatsCache();
+                    if (saved && saved.orderId) {
+                        const cleanSavedId = String(saved.orderId).replace(/^#/, "");
+                        setLocalOrders((prev) =>
+                            prev.map((o) => {
+                                const cleanOId = String(o.orderId).replace(/^#/, "");
+                                return cleanOId === cleanSavedId ? { ...o, ...saved } : o;
+                            })
+                        );
+                    }
+                }}
+            />
             <ViewDialog order={viewingOrder} open={Boolean(viewingOrder)} onOpenChange={(open) => !open && setViewingOrder(null)} />
+            <DeleteOrderDialog
+                order={deletingOrder}
+                open={Boolean(deletingOrder)}
+                onOpenChange={(open) => !open && setDeletingOrder(null)}
+                onConfirm={handleDeleteOrder}
+            />
             <Toaster />
         </>
     );
-}
+};
 
 const TablePagination = ({
     page,
@@ -256,7 +378,7 @@ const TablePagination = ({
                     <span className="text-xs">Rows per page:</span>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium">
+                            <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer">
                                 {size}
                                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                             </Button>
@@ -282,7 +404,7 @@ const TablePagination = ({
                             size="sm"
                             onClick={() => onPageChange(page - 1)}
                             disabled={page <= 0}
-                            className="h-8 px-2.5 text-xs gap-1"
+                            className="h-8 px-2.5 text-xs gap-1 cursor-pointer"
                             aria-label="Previous page"
                         >
                             <ChevronLeft className="h-3.5 w-3.5" /> Previous
@@ -305,7 +427,7 @@ const TablePagination = ({
                                         variant={page === p ? "default" : "outline"}
                                         size="sm"
                                         onClick={() => onPageChange(p as number)}
-                                        className="h-8 w-8 p-0 text-xs"
+                                        className="h-8 w-8 p-0 text-xs cursor-pointer"
                                         aria-label={`Page ${(p as number) + 1}`}
                                         aria-current={page === p ? "page" : undefined}
                                     >
@@ -320,7 +442,7 @@ const TablePagination = ({
                             size="sm"
                             onClick={() => onPageChange(page + 1)}
                             disabled={page >= totalPages - 1}
-                            className="h-8 px-2.5 text-xs gap-1"
+                            className="h-8 px-2.5 text-xs gap-1 cursor-pointer"
                             aria-label="Next page"
                         >
                             Next <ChevronRight className="h-3.5 w-3.5" />
@@ -349,7 +471,6 @@ const HeaderBar = ({ showAddButton = true, orders = [], onAddClick }: { showAddB
             </div>
         </div>
         <div className="flex items-center gap-2">
-
             {showAddButton && (
                 <Button size="sm" onClick={onAddClick} aria-label="Create new order">
                     <Plus size={14} className="mr-1.5" /> New Order
@@ -357,7 +478,7 @@ const HeaderBar = ({ showAddButton = true, orders = [], onAddClick }: { showAddB
             )}
         </div>
     </div>;
-}
+};
 
 const TableHeader = ({ columns, sortKey, sortDir, onSort }: {
     columns: { key: SortKey; label: string }[];
@@ -390,7 +511,7 @@ const TableHeader = ({ columns, sortKey, sortDir, onSort }: {
             </tr>
         </thead>
     );
-}
+};
 
 const Toolbar = ({
     localSearch,
@@ -420,20 +541,35 @@ const Toolbar = ({
             <Filter size={14} className="text-muted-foreground mr-1" aria-hidden="true" />
             {(["All", "Pending", "Delivered", "Cancelled"] as const).map((s) => (
                 <button key={s} onClick={() => onStatusChange(s)} aria-pressed={statusFilter === s}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${statusFilter === s ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${statusFilter === s ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}>
                     {s}
                 </button>
             ))}
         </fieldset>
     </div>;
-}
+};
+
 const formatDisplayDate = (dateStr: string) => {
     if (!dateStr) return "";
     const [year, month, day] = dateStr.split("-");
     return `${day}/${month}/${year}`;
 };
 
-const TableRow = ({ order, onViewDetails }: { order: Order; onViewDetails: (order: Order) => void }) => {
+const TableRow = ({
+    order,
+    onViewDetails,
+    onEdit,
+    onDelete,
+    isDeleting,
+    isExiting,
+}: {
+    order: Order;
+    onViewDetails: (order: Order) => void;
+    onEdit: (order: Order) => void;
+    onDelete: (order: Order) => void;
+    isDeleting: boolean;
+    isExiting: boolean;
+}) => {
     const statusColors: Record<string, string> = {
         PENDING: "bg-status-pending-bg text-status-pending",
         DELIVERED: "bg-status-delivered-bg text-status-delivered",
@@ -441,7 +577,14 @@ const TableRow = ({ order, onViewDetails }: { order: Order; onViewDetails: (orde
     };
 
     return (
-        <tr className="border-b border-border last:border-none hover:bg-muted/40 transition group align-middle">
+        <tr
+            className={`border-b border-border last:border-none transition-all duration-300 align-middle ${isExiting
+                ? "opacity-0 -translate-x-3 scale-[0.98] bg-destructive/10 pointer-events-none"
+                : isDeleting
+                    ? "bg-destructive/5 opacity-70 pointer-events-none"
+                    : "hover:bg-muted/40"
+                }`}
+        >
             {/* Order ID */}
             <td className="text-center px-5 py-3.5 align-middle">
                 <span className="font-mono font-semibold text-foreground">#{order.orderId}</span>
@@ -476,60 +619,67 @@ const TableRow = ({ order, onViewDetails }: { order: Order; onViewDetails: (orde
             </td>
             {/* Actions */}
             <td className="text-center px-5 py-3.5 align-middle">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition inline-flex items-center justify-center cursor-pointer data-[state=open]:bg-accent/50"
-                            aria-label={`Actions for order #${order.orderId}`}
-                        >
-                            <MoreHorizontal size={16} />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl border border-border shadow-lg bg-popover text-popover-foreground">
-                        <DropdownMenuItem
-                            onClick={() => onViewDetails(order)}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
-                        >
-                            <Eye size={16} className="text-foreground" />
-                            <span className="font-normal text-foreground">View Details</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => {}}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
-                        >
-                            <Pencil size={16} className="text-foreground" />
-                            <span className="font-normal text-foreground">Edit Order</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => {}}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
-                        >
-                            <Printer size={16} className="text-foreground" />
-                            <span className="font-normal text-foreground">Print Slip</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={() => {
-                                navigator.clipboard.writeText(order.orderId.toString());
-                                toast.success(`Order #${order.orderId} copied to clipboard`);
-                            }}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
-                        >
-                            <Copy size={16} className="text-foreground" />
-                            <span className="font-normal text-foreground">Copy ID</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="my-1 -mx-1 bg-border" />
-                        <DropdownMenuItem
-                            onClick={() => {}}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
-                        >
-                            <Trash2 size={16} className="text-destructive" />
-                            <span className="font-normal text-destructive">Delete</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {isDeleting ? (
+                    <div className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/10 text-destructive text-xs font-medium animate-pulse">
+                        <Loader2 size={13} className="animate-spin shrink-0 text-destructive" />
+                        <span className="text-[11px] font-medium">Deleting...</span>
+                    </div>
+                ) : (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition inline-flex items-center justify-center cursor-pointer data-[state=open]:bg-accent/50"
+                                aria-label={`Actions for order #${order.orderId}`}
+                            >
+                                <MoreHorizontal size={16} />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-xl border border-border shadow-lg bg-popover text-popover-foreground">
+                            <DropdownMenuItem
+                                onClick={() => onViewDetails(order)}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                            >
+                                <Eye size={16} className="text-foreground" />
+                                <span className="font-normal text-foreground">View Details</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => onEdit(order)}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                            >
+                                <Pencil size={16} className="text-foreground" />
+                                <span className="font-normal text-foreground">Edit Order</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => { }}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                            >
+                                <Printer size={16} className="text-foreground" />
+                                <span className="font-normal text-foreground">Print Slip</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    navigator.clipboard.writeText(order.orderId.toString());
+                                    toast.success(`Order #${order.orderId} copied to clipboard`);
+                                }}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer hover:bg-accent focus:bg-accent"
+                            >
+                                <Copy size={16} className="text-foreground" />
+                                <span className="font-normal text-foreground">Copy ID</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1 -mx-1 bg-border" />
+                            <DropdownMenuItem
+                                onClick={() => onDelete(order)}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                            >
+                                <Trash2 size={16} className="text-destructive" />
+                                <span className="font-normal text-destructive">Delete</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </td>
         </tr>
     );
-}
+};

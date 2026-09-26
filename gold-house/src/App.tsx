@@ -14,6 +14,7 @@ import { checkAuth } from "./lib/Api/loginApi";
 import Dashboard, { dashboardLoader } from "./pages/Dashboard";
 import DashboardLayout from "./components/DashboardLayout";
 import OrdersPage, { orderLoader } from "./pages/Order";
+import CustomersPage, { customerLoader } from "./pages/Customer";
 
 // Renders children only when session is valid, otherwise redirects to login
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -56,7 +57,8 @@ const router = createBrowserRouter(
                 />
                 <Route
                     path="/customers"
-                    element={<ProtectedRoute><div>Customers Page</div></ProtectedRoute>}
+                    element={<ProtectedRoute><CustomersPage /></ProtectedRoute>}
+                    loader={customerLoader}
                 />
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/login" replace />} />

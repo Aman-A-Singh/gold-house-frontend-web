@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialogs/dialog";
 import { Button } from "@/components/ui/button";
 import { Order } from "@/models/order";
-import { User, Phone, Scale, Calendar, CheckCircle2, Award, CreditCard, Printer } from "lucide-react";
+import { User, Phone, Scale, Calendar, CheckCircle2, Award, Printer } from "lucide-react";
 
 interface ViewDialogProps {
     order: Order | null;

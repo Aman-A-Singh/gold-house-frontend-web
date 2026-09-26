@@ -8,12 +8,14 @@ import {
 } from "@/components/ui/dialogs/dialog";
 import { Button } from "@/components/ui/button";
 import { Order } from "@/models/order";
-import { User, Phone, Scale, Calendar, CheckCircle2, Award, Printer } from "lucide-react";
+import { User, Phone, Scale, Calendar, CheckCircle2, Award, Printer, Loader2 } from "lucide-react";
 
 interface ViewDialogProps {
     order: Order | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onPrint?: (order: Order) => void;
+    isPrinting?: boolean;
 }
 
 const formatDisplayDate = (dateStr?: string | null) => {
@@ -30,7 +32,7 @@ const statusColors: Record<string, string> = {
     CANCELLED: "bg-destructive/10 text-destructive border border-destructive/20",
 };
 
-export const ViewDialog = ({ order, open, onOpenChange }: ViewDialogProps) => {
+export const ViewDialog = ({ order, open, onOpenChange, onPrint, isPrinting = false }: ViewDialogProps) => {
     if (!order) return null;
 
     const details: { label: string; value: string | number; icon?: React.ReactNode }[] = [
@@ -80,7 +82,19 @@ export const ViewDialog = ({ order, open, onOpenChange }: ViewDialogProps) => {
             )}
             <DialogFooter>
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-                <Button onClick={() => { /*if (viewOrder) handlePrint(viewOrder);*/ }}><Printer size={14} className="mr-1.5" /> Print</Button>
+                <Button
+                    disabled={isPrinting}
+                    onClick={() => {
+                        if (order && onPrint) onPrint(order);
+                    }}
+                >
+                    {isPrinting ? (
+                        <Loader2 size={14} className="mr-1.5 animate-spin" />
+                    ) : (
+                        <Printer size={14} className="mr-1.5" />
+                    )}
+                    {isPrinting ? "Printing..." : "Print"}
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

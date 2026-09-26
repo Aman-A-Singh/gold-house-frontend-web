@@ -4,7 +4,11 @@ import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+// modal={false} prevents the menu from leaving `pointer-events: none` on <body>
+// when it opens a Dialog, which made the whole screen unresponsive.
+const DropdownMenu = ({ modal = false, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) => (
+    <DropdownMenuPrimitive.Root modal={modal} {...props} />
+);
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 

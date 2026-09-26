@@ -1,12 +1,9 @@
 import {
-    BrowserRouter,
-    Routes,
     Route,
     Navigate,
     createBrowserRouter,
     createRoutesFromElements,
     RouterProvider,
-    useNavigation,
     Outlet
 } from "react-router-dom";
 import Login from "./pages/Login";
@@ -15,6 +12,8 @@ import Dashboard, { dashboardLoader } from "./pages/Dashboard";
 import DashboardLayout from "./components/DashboardLayout";
 import OrdersPage, { orderLoader } from "./pages/Order";
 import CustomersPage, { customerLoader } from "./pages/Customer";
+import BillTemplates from "./components/ui/bill/BillTemplates";
+import BillTemplateEditor from "./components/ui/bill/BillTemplateEditor";
 
 // Renders children only when session is valid, otherwise redirects to login
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -52,13 +51,25 @@ const router = createBrowserRouter(
                 />
                 <Route
                     path="/orders"
-                    element={<ProtectedRoute><OrdersPage/></ProtectedRoute>}
+                    element={<ProtectedRoute><OrdersPage /></ProtectedRoute>}
                     loader={orderLoader}
                 />
                 <Route
                     path="/customers"
                     element={<ProtectedRoute><CustomersPage /></ProtectedRoute>}
                     loader={customerLoader}
+                />
+                <Route
+                    path="/bill-templates"
+                    element={<ProtectedRoute><BillTemplates /></ProtectedRoute>}
+                />
+                <Route
+                    path="/bill-templates/new"
+                    element={<ProtectedRoute><BillTemplateEditor /></ProtectedRoute>}
+                />
+                <Route
+                    path="/bill-templates/:id/edit"
+                    element={<ProtectedRoute><BillTemplateEditor /></ProtectedRoute>}
                 />
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/login" replace />} />
